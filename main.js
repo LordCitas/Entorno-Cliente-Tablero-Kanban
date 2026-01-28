@@ -194,41 +194,41 @@ function mostrarKanban(contenedor){
         }
     });
 
-    // Contenedor de Columnas (Grid con scroll)
-    const boardGrid = document.createElement('div');
-    boardGrid.className = "board-container custom-scrollbar";
-    contenedor.appendChild(boardGrid);
+    //Generamos un contenedor para el tablero, le damos las clases para estilos y lo añadimos al DOM
+    const tablero = document.createElement('div');
+    tablero.className = "board-container custom-scrollbar";
+    contenedor.appendChild(tablero);
 
-    // Generar Columnas
+    //Vamos con el buvcle que genera cada columna del tablero y sus tareas
     estado.configuracion.columns.forEach(column => {
-        // Filtrar tareas de esta columna
-        const columnTasks = estado.tareas.filter(t => t.columnId === column.id);
-        const isFull = column.limite !== null && columnTasks.length >= column.limite;
+        //Seleccionamos las tareas que le pertenecen a esta columna y comprobamos si ha alcanzado su límite
+        const tareasColumna = estado.tareas.filter(t => t.columnId === column.id);
+        const estaLlena = column.limite !== null && tareasColumna.length >= column.limite;
 
-        // Crear elemento Columna
+        //Creamos el elemento de la columna y le asignamos sus clases y atributos de datos
         const colEl = document.createElement('div');
-        colEl.className = `column ${isFull ? 'is-full' : ''}`;
+        colEl.className = `column ${estaLlena ? 'is-full' : ''}`;
         colEl.dataset.colId = column.id;
         colEl.dataset.limite = column.limite || 'Infinity';
 
-        // Cabecera Columna
+        //Le añadimos un header con el título y el contador de tareas
         const colHeader = document.createElement('div');
         colHeader.className = "column-header";
         colHeader.innerHTML = `
             <span title="${column.titulo}" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%;">${column.titulo}</span>
             <span class="counter">
-                ${columnTasks.length} / ${column.limite === null ? '∞' : column.limite}
+                ${tareasColumna.length} / ${column.limite === null ? '∞' : column.limite}
             </span>
         `;
         colEl.appendChild(colHeader);
 
-        // Área de Tareas (Dropzone)
+        //Creamos el contenedor de las tareas de la columna y le damos estilos
         const taskList = document.createElement('div');
         taskList.className = "task-list custom-scrollbar";
         taskList.dataset.type = "task-list";
         
         // Renderizar tareas
-        columnTasks.forEach(task => {
+        tareasColumna.forEach(task => {
             const taskEl = createTaskElement(task);
             taskList.appendChild(taskEl);
         });
@@ -239,7 +239,7 @@ function mostrarKanban(contenedor){
         const colFooter = document.createElement('div');
         colFooter.className = "column-footer";
         
-        if (isFull) {
+        if (estaLlena) {
             colFooter.innerHTML = `<div class="limit-msg">Límite alcanzado</div>`;
         } else {
             const inputGroup = document.createElement('div');
@@ -317,7 +317,7 @@ function mostrarKanban(contenedor){
             }
         });
 
-        boardGrid.appendChild(colEl);
+        tablero.appendChild(colEl);
     });
 }
 
