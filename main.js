@@ -206,10 +206,10 @@ function mostrarKanban(contenedor){
         const estaLlena = column.limite !== null && tareasColumna.length >= column.limite;
 
         //Creamos el elemento de la columna y le asignamos sus clases y atributos de datos
-        const colEl = document.createElement('div');
-        colEl.className = `column ${estaLlena ? 'is-full' : ''}`;
-        colEl.dataset.colId = column.id;
-        colEl.dataset.limite = column.limite || 'Infinity';
+        const columnaNueva = document.createElement('div');
+        columnaNueva.className = `columna ${estaLlena ? 'is-full' : ''}`;
+        columnaNueva.dataset.colId = column.id;
+        columnaNueva.dataset.limite = column.limite || 'Infinity';
 
         //Le añadimos un header con el título y el contador de tareas
         const colHeader = document.createElement('div');
@@ -220,28 +220,28 @@ function mostrarKanban(contenedor){
                 ${tareasColumna.length} / ${column.limite === null ? '∞' : column.limite}
             </span>
         `;
-        colEl.appendChild(colHeader);
+        columnaNueva.appendChild(colHeader);
 
         //Creamos el contenedor de las tareas de la columna y le damos estilos
-        const taskList = document.createElement('div');
-        taskList.className = "task-list custom-scrollbar";
-        taskList.dataset.type = "task-list";
+        const listaTareas = document.createElement('div');
+        listaTareas.className = "task-list custom-scrollbar";
+        listaTareas.dataset.type = "task-list";
         
-        // Renderizar tareas
-        tareasColumna.forEach(task => {
-            const taskEl = createTaskElement(task);
-            taskList.appendChild(taskEl);
+        //Para cada tarea de la columna, creamos una etiqueta y la añadimos al contenedor en el DOM
+        tareasColumna.forEach(tarea => {
+            const tareaNueva = crearTarea(tarea);
+            listaTareas.appendChild(tareaNueva);
         });
+        columnaNueva.appendChild(listaTareas);
 
-        colEl.appendChild(taskList);
-
-        // Pie de Columna (Añadir tarea)
+        //Creamos un footer a la columna con un input y un botón para añadir nuevas tareas
         const colFooter = document.createElement('div');
         colFooter.className = "column-footer";
         
-        if (estaLlena) {
+        //Si la columna está llena, mostramos un mensaje
+        if(estaLlena){
             colFooter.innerHTML = `<div class="limit-msg">Límite alcanzado</div>`;
-        } else {
+        } else { //En caso contrario, mostramos el formulario de añadir tarea
             const inputGroup = document.createElement('div');
             inputGroup.className = "flex-group";
             inputGroup.innerHTML = `
@@ -251,51 +251,65 @@ function mostrarKanban(contenedor){
                 </button>
             `;
             
-            // Lógica para añadir tarea
+            //Seleccionamos del DOM los elementos del input y el botón para añadirles sus eventos
             const input = inputGroup.querySelector('input');
             const btn = inputGroup.querySelector('button');
 
-            const addTaskAction = () => {
+            const introducirTarea = () => {
+                //Limpiamos y validamos el contenido del input
                 const content = input.value.trim();
+
+                //Si no hay contenido, salimos sin hacer nada
                 if (!content) return;
                 
-                // Añadir tarea al estado
+                //Añadimos la nueva tarea al estado
                 estado.tareas.push({
                     id: `task-${Date.now()}`,
                     columnId: column.id,
                     content: content
                 });
+
+                //Guardamos el estado y volvemos a mostrar el tablero actualizado
                 guardarEstado();
-                mostrarInfo(); // Re-renderizar todo para actualizar contadores y estados
+                mostrarInfo();
             };
 
-            btn.addEventListener('click', addTaskAction);
+            //Añadimos los eventos al botón y al input
+            btn.addEventListener('click', introducirTarea);
             input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') addTaskAction();
+                if (e.key === 'Enter') introducirTarea();
             });
-
+            
+            //Añadimos los inputs al footer
             colFooter.appendChild(inputGroup);
         }
-        colEl.appendChild(colFooter);
 
-        // Eventos de Drag & Drop en la COLUMNA (Dropzone)
-        colEl.addEventListener('dragover', (e) => {
-            e.preventDefault(); // Necesario para permitir drop
+        //Añadimos el footer a la columna en el DOM
+        columnaNueva.appendChild(colFooter);
+
+        //Listeners para eventos de drag y drop
+        columnaNueva.addEventListener('dragover', (e) => {
+            //Prevenimos el comportamiento predeterminado del navegador
+            e.preventDefault();
             const limite = column.limite;
+
+            //Esto solo añade estilo a la columna si todavía no está llena y pasamos por encima suya con una tarea
             const currentCount = estado.tareas.filter(t => t.columnId === column.id).length;
-            
             if (limite === null || currentCount < limite) {
-                colEl.classList.add('drag-over');
+                columnaNueva.classList.add('drag-over');
             }
         });
 
-        colEl.addEventListener('dragleave', () => {
-            colEl.classList.remove('drag-over');
+        //Y esto le quita el estilo cuando sacamos el ratón de la columna al arrastrar la tarea
+        columnaNueva.addEventListener('dragleave', () => {
+            columnaNueva.classList.remove('drag-over');
         });
 
-        colEl.addEventListener('drop', (e) => {
+        //Evento drop para soltar la tarea en la columna
+        columnaNueva.addEventListener('drop', (e) => {
+            //De nuevo, prevenimos el comportamiento predeterminado del navegador
             e.preventDefault();
-            colEl.classList.remove('drag-over');
+            columnaNueva.classList.remove('drag-over');
             const taskId = e.dataTransfer.getData('text/plain');
             const taskIndex = estado.tareas.findIndex(t => t.id === taskId);
             
@@ -317,58 +331,56 @@ function mostrarKanban(contenedor){
             }
         });
 
-        tablero.appendChild(colEl);
+        tablero.appendChild(columnaNueva);
     });
 }
 
-// --- COMPONENTE TAREA ---
+//Una función para crear el elemento tarea con sus eventos
+function crearTarea(tarea) {
+    //Primero creamos el contenedor de la tarea y le damos sus clases y atributos
+    const elemento = document.createElement('div');
+    elemento.className = "task";
+    elemento.draggable = true;
+    elemento.textContent = tarea.content;
+    elemento.title = "Doble clic para eliminar";
 
-function createTaskElement(task) {
-    const el = document.createElement('div');
-    el.className = "task";
-    el.draggable = true;
-    el.textContent = task.content;
-    el.title = "Doble clic para eliminar";
-
-    // Eventos de Arrastre (Drag)
-    el.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', task.id);
+    //Listener para el evento de dragstart
+    elemento.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', tarea.id);
         e.dataTransfer.effectAllowed = 'move';
         setTimeout(() => el.classList.add('dragging'), 0);
     });
 
-    el.addEventListener('dragend', () => {
-        el.classList.remove('dragging');
+    //Listener para el evento de dragend
+    elemento.addEventListener('dragend', () => {
+        elemento.classList.remove('dragging');
     });
 
-    // Evento Eliminar (Doble Clic)
-    el.addEventListener('dblclick', () => {
-        estado.tareas = estado.tareas.filter(t => t.id !== task.id);
+    //Listener para el evento de double click (eliminar tarea)
+    elemento.addEventListener('dblclick', () => {
+        estado.tareas = estado.tareas.filter(t => t.id !== tarea.id);
         guardarEstado();
         mostrarInfo();
     });
 
-    // Icono de eliminar visible en hover
-    const delIcon = document.createElement('span');
-    delIcon.innerHTML = '&times;';
-    delIcon.className = "task-delete";
-    el.appendChild(delIcon);
-
-    return el;
+    //Devolvemos la tarea ya creada
+    return elemento;
 }
 
-// --- UTILIDADES ---
-
+//Una funciñon para mostrar avisos y errores al usuario
 function showToast(message, type = 'info') {
+    //Creamos el contenedor del aviso y la propia notificación
     const contenedor = document.getElementById('toast-container');
     const toast = document.createElement('div');
     
+    //Asignamos las clases y el mensaje correspondiente
     toast.className = `toast ${type === 'error' ? 'toast-error' : 'toast-info'}`;
     toast.textContent = message;
     
+    //Añadimos el aviso al contenedor en el DOM
     contenedor.appendChild(toast);
     
-    // Remover después de 3 segundos
+    //Se elimina el aviso después de 3 segundos
     setTimeout(() => {
         toast.remove();
     }, 3000);
