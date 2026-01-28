@@ -3,8 +3,8 @@ const DATOS_GUARDADOS = 'tablero_kanban';
 
 //Definimos un objeto para llevar el estado del tablero en la sesión actual
 let estado = {
-    configuracion: null, // { columns: [{id, titulo, limite}] }
-    tareas: []     // [{id, columnId, content}]
+    configuracion: null, //{ columns: [{id, titulo, limite}] }
+    tareas: []     //[{id, columnId, content}]
 };
 
 //Lo primero que debemos hacer es cargar el estado guardado si existe
@@ -134,7 +134,9 @@ function mostrarFormulario(contenedor){
         nombresCols.forEach((input, index) => {
             //Limpiamos y recogemos los valores
             const nombre = input.value.trim();
-            const limite = parseInt(longitudCols[index].value);
+            const valorLimite = longitudCols[index].value;
+            // Si está vacío o es menor/igual a 0, asignamos null. Si no, el número.
+            const limite = (valorLimite === '' || parseInt(valorLimite) <= 0) ? null : parseInt(valorLimite);
 
             //Si la columna no tiene nombre, marcamos un error
             if(!nombre){
@@ -144,7 +146,7 @@ function mostrarFormulario(contenedor){
                 //Quitamos cualquier marca de error previa
                 input.classList.remove('error');
 
-                //Añadimos la columna
+                //Añadimos la columna al array
                 columnasNuevas.push({
                     id: contador++,
                     titulo: nombre,
@@ -153,90 +155,91 @@ function mostrarFormulario(contenedor){
             }
         });
 
-        //Si hay algún error de validación, lanzamos un aviso y salimos
-        if(!esValido){
+        //Si hay algún error de validación, mostramos un aviso y salimos
+        if (!esValido) {
             showToast("Por favor, asigna un nombre a todas las columnas.", "error");
             return;
         }
 
-        //Si no ha habido ningún error en las comprobaciones, guardamos la nueva configuración en el estado y reiniciamos las tareas
+        //Si no ha habido ningún error, guardamos la nueva configuración en el estado y reiniciamos las tareas
         estado.configuracion = {columns: columnasNuevas};
         estado.tareas = [];
 
-        //Guardamos el estado y mostramos el tablero kanban
+        //Guardamos en localStorage y mostramos el tablero kanban
         guardarEstado();
         mostrarInfo();
     });
 }
 
-//Una función para generar y mostrar el tablero kanban de forma dinámica
+//Una fun ción para generar y mostrar el tablero kanban de forma dinámica
 function mostrarKanban(contenedor){
-    //Generamos una cabecera para el tablero con un botón para resetear la configuración y la añadimos al DOM
+    //Generamos un header para el tablero con botón de reseteo de la configuración
     const header = document.createElement('header');
     header.className = "board-header";
     header.innerHTML = `
         <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-main);">Mi Tablero Kanban</div>
         <button id="btnReset" class="btn-reset">Reiniciar configuración</button>
     `;
+
+    //Lo añadimos al DOM
     contenedor.appendChild(header);
 
     //Un listener para el botón de reseteo de la configuración
     document.getElementById('btnReset').addEventListener('click', () => {
-        if(confirm("¿Estás seguro? Se borrarán todas las tareas y la configuración.")) {
+        //Antes de resetear, pedimos una confirmación al usuario
+        if(confirm("¿Estás seguro? Se borrarán todas las tareas y la configuración.")){
             localStorage.removeItem(DATOS_GUARDADOS);
-            estado = { configuracion: null, tareas: [] };
+            estado = {configuracion: null, tareas: []};
             mostrarInfo();
         }
     });
 
-    //Creamos un contenedor para la tabla y lo añadimos al DOM
-    const tabla = document.createElement('div');
-    tabla.className = "board-container custom-scrollbar";
-    contenedor.appendChild(tabla);
+    // Contenedor de Columnas (Grid con scroll)
+    const boardGrid = document.createElement('div');
+    boardGrid.className = "board-container custom-scrollbar";
+    contenedor.appendChild(boardGrid);
 
-    //Vamos con un bucle que va generando las columnas del tablero propiamente dichas y las añade a la tabla
+    // Generar Columnas
     estado.configuracion.columns.forEach(column => {
-        //Obtenemos todas las tareas que pertenezcan a esta columna
-        const tareasColumna = estado.tareas.filter(t => t.columnId === column.id);
+        // Filtrar tareas de esta columna
+        const columnTasks = estado.tareas.filter(t => t.columnId === column.id);
+        const isFull = column.limite !== null && columnTasks.length >= column.limite;
 
-        //Comprobamos si la columna ha alcanzado su límite de tareas
-        const estaLlena = column.limit !== null && tareasColumna.length >= column.limit;
+        // Crear elemento Columna
+        const colEl = document.createElement('div');
+        colEl.className = `column ${isFull ? 'is-full' : ''}`;
+        colEl.dataset.colId = column.id;
+        colEl.dataset.limite = column.limite || 'Infinity';
 
-        //Creamos el elemento columna, le asignamos las clases para estilos y los data-attributes necesarios
-        const colNueva = document.createElement('div');
-        colNueva.className = `column ${estaLlena ? 'is-full' : ''}`;
-        colNueva.dataset.colId = column.id;
-        colNueva.dataset.limit = column.limit || 'Infinity';
-
-        //Generamos una cabecera para la columna con info sobre el máximo de tareas y se la añadimos
+        // Cabecera Columna
         const colHeader = document.createElement('div');
         colHeader.className = "column-header";
         colHeader.innerHTML = `
             <span title="${column.titulo}" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%;">${column.titulo}</span>
             <span class="counter">
-                ${tareasColumna.length} / ${column.limit === null ? '∞' : column.limit}
+                ${columnTasks.length} / ${column.limite === null ? '∞' : column.limite}
             </span>
         `;
-        colNueva.appendChild(colHeader);
+        colEl.appendChild(colHeader);
 
-        //Creamos el contenedor de las tareas dentro de la columna y le asignamos las clases y data-attributes necesarios
-        const contenedorTareas = document.createElement('div');
-        contenedorTareas.className = "task-list custom-scrollbar";
-        contenedorTareas.dataset.type = "task-list";
+        // Área de Tareas (Dropzone)
+        const taskList = document.createElement('div');
+        taskList.className = "task-list custom-scrollbar";
+        taskList.dataset.type = "task-list";
         
-        //Para cada tarea de la columna, creamos una etiqueta de la tarea y la añadimos al contenedor de antes
-        tareasColumna.forEach(tarea => {
-            const tareaNueva = createTaskElement(tarea);
-            contenedorTareas.appendChild(tareaNueva);
+        // Renderizar tareas
+        columnTasks.forEach(task => {
+            const taskEl = createTaskElement(task);
+            taskList.appendChild(taskEl);
         });
 
-        colNueva.appendChild(contenedorTareas);
+        colEl.appendChild(taskList);
 
         // Pie de Columna (Añadir tarea)
         const colFooter = document.createElement('div');
         colFooter.className = "column-footer";
         
-        if (estaLlena) {
+        if (isFull) {
             colFooter.innerHTML = `<div class="limit-msg">Límite alcanzado</div>`;
         } else {
             const inputGroup = document.createElement('div');
@@ -273,26 +276,26 @@ function mostrarKanban(contenedor){
 
             colFooter.appendChild(inputGroup);
         }
-        colNueva.appendChild(colFooter);
+        colEl.appendChild(colFooter);
 
         // Eventos de Drag & Drop en la COLUMNA (Dropzone)
-        colNueva.addEventListener('dragover', (e) => {
+        colEl.addEventListener('dragover', (e) => {
             e.preventDefault(); // Necesario para permitir drop
-            const limit = column.limit;
+            const limite = column.limite;
             const currentCount = estado.tareas.filter(t => t.columnId === column.id).length;
             
-            if (limit === null || currentCount < limit) {
-                colNueva.classList.add('drag-over');
+            if (limite === null || currentCount < limite) {
+                colEl.classList.add('drag-over');
             }
         });
 
-        colNueva.addEventListener('dragleave', () => {
-            colNueva.classList.remove('drag-over');
+        colEl.addEventListener('dragleave', () => {
+            colEl.classList.remove('drag-over');
         });
 
-        colNueva.addEventListener('drop', (e) => {
+        colEl.addEventListener('drop', (e) => {
             e.preventDefault();
-            colNueva.classList.remove('drag-over');
+            colEl.classList.remove('drag-over');
             const taskId = e.dataTransfer.getData('text/plain');
             const taskIndex = estado.tareas.findIndex(t => t.id === taskId);
             
@@ -302,7 +305,7 @@ function mostrarKanban(contenedor){
                 if (task.columnId === column.id) return;
 
                 const targetCount = estado.tareas.filter(t => t.columnId === column.id).length;
-                if (column.limit !== null && targetCount >= column.limit) {
+                if (column.limite !== null && targetCount >= column.limite) {
                     showToast("Esta columna ha alcanzado su límite máximo.", "error");
                     return;
                 }
@@ -314,7 +317,7 @@ function mostrarKanban(contenedor){
             }
         });
 
-        tabla.appendChild(colNueva);
+        boardGrid.appendChild(colEl);
     });
 }
 
