@@ -1,21 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Tablero Kanban</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <main>
-        <form>
-            <div id="formulario">
-                <label for="columnas">Número de columnas:</label>
-                <input type="text" id="columnas" name="columnas" required>
-                <button type="submit">Aceptar</button>
-            </div>
-            
-        </form>
-    </main>
+    <div id="contenido"></div>
+
+    <!-- Contenedor de notificaciones -->
+    <div id="toast-container"></div>
+
+    <script src="main.js"></script>
 </body>
 </html>
